@@ -1,0 +1,175 @@
+----------------------------------------------------------------------------------
+-- Company: 
+-- Engineer: 
+-- 
+-- Create Date: 04/01/2024 05:41:58 PM
+-- Design Name: 
+-- Module Name: PhotoSensor - Behavioral
+-- Project Name: 
+-- Target Devices: 
+-- Tool Versions: 
+-- Description: Used for Rudimentary camera
+-- 
+-- Dependencies: 
+-- 
+-- Revision:
+-- Revision 0.01 - File Created
+-- Additional Comments:
+-- 
+----------------------------------------------------------------------------------
+
+
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.NUMERIC_STD.ALL;
+
+-- Uncomment the following library declaration if using
+-- arithmetic functions with Signed or Unsigned values
+--use IEEE.NUMERIC_STD.ALL;
+
+-- Uncomment the following library declaration if instantiating
+-- any Xilinx leaf cells in this code.
+--library UNISIM;
+--use UNISIM.VComponents.all;
+
+entity PhotoSensor4x8 is
+    Port (
+    
+        clk         : in    std_logic;
+        shutter     : in    std_logic;
+       
+        snsr0         : in    std_logic;
+--        snsr1         : in    std_logic;
+--        snsr2         : in    std_logic;
+--        snsr3         : in    std_logic;
+--        snsr4         : in    std_logic;
+--        snsr5         : in    std_logic;
+--        snsr6         : in    std_logic;
+--        snsr7         : in    std_logic;
+
+        led0         : out   std_logic
+--		led1         : out   STD_LOGIC;
+--		led2         : out   STD_LOGIC;
+--        led3         : out   STD_LOGIC;		
+--        led4         : out   STD_LOGIC;
+--        led5         : out   STD_LOGIC;
+--        led6         : out   STD_LOGIC;
+--        led7         : out   STD_LOGIC
+    );
+   
+end PhotoSensor4x8;
+
+architecture Behavioral of PhotoSensor4x8 is
+
+    signal slow_clk: std_logic :='0';
+    signal baude_rate: std_logic :='0';
+    signal pulse : std_logic:='0';
+    signal slow_clk_last: std_logic;
+    signal baude_rate_last: std_logic;
+    signal counter : unsigned(26 downto 0) := (others => '0');
+    signal counter_br: integer;
+    signal sr0 : std_logic_vector(3 downto 0):=(others=>'0');
+    signal snr0 : integer;
+
+
+begin
+ 
+
+   edge_det_process : process(clk)
+    begin
+      if rising_edge(clk) then
+        slow_clk_last <= slow_clk;
+        baude_rate_last<=baude_rate;
+      end if;
+    end process edge_det_process;
+    
+    baude:process(clk)
+    begin
+        if rising_edge(clk)then
+          counter_br <=  counter_br+1;
+           if(counter_br = 125000000 and baude_rate = '0') then
+              baude_rate <= '1';
+              counter_br <=0;
+             elsif(counter_br = 125000000 and baude_rate = '1') then
+              baude_rate <= '0';
+              counter_br <=0;
+           end if;          
+          end if;
+    end process;
+
+pwm: process(clk)
+variable count:  integer;
+variable x0 : integer;
+begin
+
+
+
+    if rising_edge(clk)then
+    x0 := 1500*(16-snr0);
+    count := count+1;
+    
+    if count = x0 then 
+    pulse <= '1';
+    elsif count = 24000 then
+    pulse <= '0';
+    count := 0;
+    
+--    gti fabrication, south buffalo
+    
+    end if;
+    end if;
+end process;
+
+slow_clk_gen: process(clk)
+begin
+    if rising_edge(clk) then
+        if counter = (124999999) then
+            slow_clk <= '1';
+            counter <= (others => '0');
+           else
+            slow_clk <= '0';
+            counter <= counter + 1;
+        end if;
+    end if;
+end process;
+
+
+
+shut : process(clk)
+variable count : integer:=0;
+variable temp : std_logic_vector(7 downto 0):= "00000000";
+begin
+    if rising_edge (clk) then
+        if(baude_rate_last = '0' and baude_rate = '1') then
+        temp(count) := snsr0;
+        count := count+1;
+        if(count = 7) then
+        count :=0;
+        end if;
+        if(temp(0) = '1' and temp(1) = '1' and temp(2) = '1' and temp(3) = '1') then
+        sr0(count-4)<= snsr0;
+        snr0 <= TO_INTEGER(unsigned(sr0));
+        end if;
+        end if;
+    end if;
+end process;
+
+
+led_display : process(clk)
+begin
+    if rising_edge (clk) then
+        if shutter = '1' then
+        if pulse ='1' then
+        led0<='1';
+        elsif pulse ='0' then
+        led0<='0';
+        end if;
+        else
+        led0<='0';
+        end if;
+    end if;
+end process;
+
+
+
+end Behavioral;
